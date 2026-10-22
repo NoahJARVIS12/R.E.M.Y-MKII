@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R.E.M.Y.</title>
+<style>
+:root{--bg:#030d18;--panel:#071a2b;--line:#12384f;--cy:#5ee7ff;--cy2:#2aa8c4;--gold:#ffc46b;--tx:#d9f6ff;--mut:#7fa9ba}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:radial-gradient(ellipse at 50% 30%,#0a2a42 0%,var(--bg) 65%);color:var(--tx);font-family:"Bahnschrift","Segoe UI","Helvetica Neue",Arial,sans-serif;overflow:hidden}
+#boot{position:fixed;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);text-align:center;padding:24px}
+#boot h1{font-size:clamp(40px,9vw,84px);font-weight:300;letter-spacing:.18em;color:var(--cy);text-shadow:0 0 28px #2aa8c4aa}
+#boot p{color:var(--mut);max-width:440px;line-height:1.5}
+button{font:inherit;color:var(--cy);background:#0a2a3f;border:1px solid var(--cy2);border-radius:999px;padding:12px 28px;cursor:pointer;transition:background .2s,box-shadow .2s}
+button:hover{background:#0f4059;box-shadow:0 0 18px #2aa8c455}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#app{height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:980px;margin:0 auto;padding:12px 16px 16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--mut);font-size:13px}
+header b{color:var(--cy);font-weight:600;letter-spacing:.2em;font-size:15px}
+#stat{display:flex;align-items:center;gap:8px}
+#dot{width:9px;height:9px;border-radius:50%;background:var(--cy2);box-shadow:0 0 10px var(--cy)}
+main{display:grid;grid-template-rows:minmax(150px,38%) 1fr;min-height:0}
+#orbwrap{display:flex;align-items:center;justify-content:center;min-height:0}
+canvas{height:100%;max-height:300px;aspect-ratio:1;width:auto}
+#log{overflow-y:auto;padding:8px 4px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.m{max-width:85%;padding:10px 14px;border-radius:14px;line-height:1.5;font-size:15px;border:1px solid var(--line);background:var(--panel)}
+.u{align-self:flex-end;color:var(--mut);border-radius:14px 14px 3px 14px}
+.r{align-self:flex-start;border-left:3px solid var(--cy);border-radius:3px 14px 14px 14px}
+.r a{color:var(--gold)}
+#bar{display:flex;gap:8px;align-items:center;margin-top:8px}
+#txt{flex:1;min-width:0;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:999px;padding:12px 18px;font:inherit}
+#mic.on{background:var(--gold);color:#1a1000;border-color:var(--gold);box-shadow:0 0 22px #ffc46b88}
+#mic,#send{padding:12px 18px}
+#opts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px;color:var(--mut)}
+select{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:230px;font:inherit}
+label{display:flex;align-items:center;gap:6px}
+#alx{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px;color:var(--mut)}
+#alx>span{color:var(--gold);letter-spacing:.15em;text-transform:uppercase}
+#brain{margin-top:8px;font-size:12px;color:var(--mut)}
+#brain button{padding:6px 14px;font-size:12px}
+#alx button{padding:6px 14px;font-size:12px}
+@media(prefers-reduced-motion:reduce){#log{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div id="boot">
+  <h1>R.E.M.Y.</h1>
+  <p>Your personal assistant. No account, no key, no installation. General questions use a free online AI service, so you need an internet connection for those. Use Chrome, Edge or Safari for voice.</p>
+  <button id="go">Start R.E.M.Y.</button>
+</div>
+
+<div id="app">
+  <header><b>R.E.M.Y.</b><div id="stat"><span id="dot"></span><span id="st">Standing by</span></div></header>
+  <main>
+    <div id="orbwrap"><canvas id="cv" width="600" height="600" aria-label="R.E.M.Y. status display"></canvas></div>
+    <div id="log" aria-live="polite"></div>
+  </main>
+  <div>
+    <div id="bar">
+      <button id="mic" title="Talk to R.E.M.Y." aria-label="Toggle microphone">Mic</button>
+      <input id="txt" type="text" placeholder="Type a request, or say “help”" autocomplete="off" aria-label="Message">
+      <button id="send">Send</button>
+    </div>
+    <div id="opts">
+      <label>Voice <select id="vsel"></select></label>
+      <label><input type="checkbox" id="spk" checked> Speak replies</label>
+      <label><input type="checkbox" id="wake" checked> Wake word: say “Remy” first</label>
+      <label>Speed <input type="range" id="rate" min="0.7" max="1.2" step="0.05" value="0.96"></label>
+    </div>
+    <div id="brain"><button id="lb">Load offline brain</button> <span id="bs"></span></div>
+    <div id="alx"><span>Computer</span>
+      <button data-c="enter workshop mode">Enter workshop mode</button><button data-c="exit workshop mode">Exit workshop mode</button>
+      <button data-c="turn on the lights">Lights on</button><button data-c="turn off the lights">Lights off</button><button data-c="play music">Music</button><button data-c="stop">Stop</button><button data-c="turn the volume up">Vol +</button><button data-c="turn the volume down">Vol -</button>
+      <label>Voice <select id="asel"></select></label>
+      <label>Volume <input type="range" id="avol" min="0.3" max="1" step="0.05" value="1"></label>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i)};
+var log=$("log"),txt=$("txt"),st=$("st"),vsel=$("vsel"),asel=$("asel"),mic=$("mic");
+var state="idle",voices=[],listening=false,rec=null,speaking=false;
+
+/* ---------- Voice (built-in browser speech, no key needed) ---------- */
+var PREF=["google uk english male","daniel","arthur","microsoft ryan","microsoft george","oliver","microsoft thomas","en-gb"];
+function loadVoices(){
+  voices=speechSynthesis.getVoices().filter(function(v){return /^en/i.test(v.lang)});
+  voices.sort(function(a,b){return score(b)-score(a)});
+  vsel.innerHTML="";
+  voices.forEach(function(v,i){var o=document.createElement("option");o.value=i;o.textContent=v.name+" ("+v.lang+")";vsel.appendChild(o)});
+  var saved=localStorage.getItem("remy_voice");
+  if(saved){var ix=voices.findIndex(function(v){return v.name===saved});if(ix>-1)vsel.value=ix}
+  fillA();
+}
+function score(v){
+  var n=v.name.toLowerCase(),s=0;
+  if(/en[-_]gb/i.test(v.lang))s+=50;
+  PREF.forEach(function(p,i){if(n.indexOf(p)>-1)s+=40-i*3});
+  if(/female|samantha|fiona|kate|serena|susan|hazel|libby|sonia|martha|stephanie/.test(n))s-=60;
+  return s;
+}
+if("speechSynthesis" in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+vsel.onchange=function(){var v=voices[vsel.value];if(v)localStorage.setItem("remy_voice",v.name);say("Voice updated. How does this sound, sir?")};
+
+/* ---------- Alexa relay: R.E.M.Y. says the wake word and command aloud, no key needed ---------- */
+var ignoreUntil=0,awakeUntil=0;
+function fillA(){
+  var ix=voices.map(function(v,i){return i}).sort(function(a,b){return (/en[-_]us/i.test(voices[b].lang)?1:0)-(/en[-_]us/i.test(voices[a].lang)?1:0)});
+  asel.innerHTML="";
+  ix.forEach(function(i){var o=document.createElement("option");o.value=i;o.textContent=voices[i].name;asel.appendChild(o)});
+  var sv=localStorage.getItem("remy_avoice");
+  if(sv){var k=voices.findIndex(function(v){return v.name===sv});if(k>-1)asel.value=k}
+}
+asel.onchange=function(){var v=voices[asel.value];if(v)localStorage.setItem("remy_avoice",v.name)};
+function toAlexa(cmd){
+  cmd=cmd.replace(/^(to|and)\s+/,"").replace(/[.?!]+$/,"").trim();
+  if(!cmd)return "What shall I ask Alexa, sir?";
+  if(!("speechSynthesis" in window))return "I have no voice in this browser, so I can’t reach Alexa, sir.";
+  speechSynthesis.cancel();
+  if(rec&&listening)try{rec.stop()}catch(e){}
+  var u=new SpeechSynthesisUtterance("Computer "+cmd),v=voices[asel.value];
+  if(v){u.voice=v;u.lang=v.lang}else u.lang="en-US";
+  u.rate=.9;u.pitch=1;u.volume=parseFloat($("avol").value);
+  ignoreUntil=Date.now()+15000;
+  u.onstart=function(){speaking=true;setState("speaking")};
+  u.onend=u.onerror=function(){speaking=false;ignoreUntil=Date.now()+9000;setState(listening?"listening":"idle");if(listening)setTimeout(startRec,300)};
+  speechSynthesis.speak(u);
+  return {quiet:true,html:"Relaying to your Echo, sir: “"+esc(cmd)+"”. Her speaker needs to be within earshot of this device."};
+}
+
+function say(t,quiet,spoken){
+  add(t,"r");
+  if(quiet||!$("spk").checked||!("speechSynthesis" in window))return;
+  speechSynthesis.cancel();
+  var clean=(spoken||t).replace(/<[^>]+>/g,"").replace(/R\.E\.M\.Y\./g,"Remy");
+  var u=new SpeechSynthesisUtterance(clean),v=voices[vsel.value];
+  if(v){u.voice=v;u.lang=v.lang}else u.lang="en-GB";
+  u.rate=parseFloat($("rate").value);u.pitch=.82;
+  u.onstart=function(){speaking=true;setState("speaking");if(rec&&listening)try{rec.stop()}catch(e){}};
+  u.onend=u.onerror=function(){speaking=false;awakeUntil=Date.now()+7000;setState(listening?"listening":"idle");if(listening)startRec()};
+  speechSynthesis.speak(u);
+}
+function add(t,c){var d=document.createElement("div");d.className="m "+c;if(c==="r")d.innerHTML=t;else d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
+function setState(s){state=s;st.textContent={idle:"Standing by",listening:"Listening",speaking:"Speaking",thinking:"Thinking"}[s]}
+
+/* ---------- Listening (browser speech recognition) ---------- */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function startRec(){
+  if(!SR||speaking)return;
+  rec=new SR();rec.lang="en-GB";rec.interimResults=false;rec.continuous=false;
+  rec.onresult=function(e){
+    if(Date.now()<ignoreUntil)return;
+    var t=e.results[0][0].transcript;
+    if($("wake").checked){
+      var NM=/\b(?:(?:hey|hi|ok|okay)\s+)?(?:remy|remi|remmy|rami|ramy|rimmy|r\.?e\.?m\.?y\.?)\b[,.]?/ig;
+      var hit=NM.test(t);
+      if(!hit&&Date.now()>awakeUntil)return;
+      if(hit){t=t.replace(NM,"").trim();if(!t){handle("Remy");return}}
+    }
+    handle(t)};
+  rec.onerror=function(e){if(e.error==="not-allowed"||e.error==="service-not-allowed"){listening=false;mic.classList.remove("on");setState("idle");say("I can’t reach the microphone. Please allow access in your browser, sir, or type to me instead.",true)}};
+  rec.onend=function(){if(listening&&!speaking&&state!=="thinking")setTimeout(startRec,250)};
+  try{rec.start();setState("listening")}catch(e){}
+}
+mic.onclick=function(){
+  if(!SR){say("Voice input isn’t supported in this browser. Chrome, Edge or Safari will work, or you can simply type.");return}
+  listening=!listening;mic.classList.toggle("on",listening);
+  if(listening)startRec();else{try{rec.stop()}catch(e){}setState("idle")}
+};
+
+/* ---------- Brain: local rules, no API ---------- */
+var jokes=["I would tell you a UDP joke, sir, but you might not get it.","Why do programmers prefer dark mode? Because light attracts bugs.","I tried to write a joke about time travel. You didn’t like it, so I went back and removed it.","There are only ten types of people: those who understand binary and those who don’t."];
+var facts=["Honey never spoils. Archaeologists have found edible honey in ancient Egyptian tombs.","A day on Venus is longer than its year.","Octopuses have three hearts and blue blood.","The Eiffel Tower grows around fifteen centimetres taller in summer heat."];
+var sites={youtube:"https://www.youtube.com",google:"https://www.google.com",gmail:"https://mail.google.com",maps:"https://maps.google.com",github:"https://github.com",wikipedia:"https://www.wikipedia.org",reddit:"https://www.reddit.com",netflix:"https://www.netflix.com",spotify:"https://open.spotify.com",amazon:"https://www.amazon.com",twitter:"https://x.com",x:"https://x.com",news:"https://news.google.com"};
+var pick=function(a){return a[Math.floor(Math.random()*a.length)]};
+var hour=function(){var h=new Date().getHours();return h<12?"morning":h<18?"afternoon":"evening"};
+var accent=localStorage.getItem("remy_accent");if(accent)document.documentElement.style.setProperty("--cy",accent);
+
+function numWords(s){
+  return s.replace(/\bplus\b/g,"+").replace(/\b(minus|take away)\b/g,"-").replace(/\b(times|multiplied by|x)\b/g,"*")
+   .replace(/\b(divided by|over)\b/g,"/").replace(/\bto the power of\b/g,"^").replace(/\bsquared\b/g,"^2").replace(/\bcubed\b/g,"^3")
+   .replace(/(\d+)\s*percent of\s*(\d+)/g,"($1/100)*$2").replace(/,/g,"");
+}
+function calc(q){
+  var e=numWords(q.toLowerCase().replace(/^(what is|what’s|what's|calculate|work out|compute|how much is)\s*/,"").replace(/[?=]/g,"")).replace(/\^/g,"**").trim();
+  if(!/^[\d+\-*/().%\s]+$/.test(e)||!/\d/.test(e)||!/[+\-*/%]/.test(e))return null;
+  try{var r=Function('"use strict";return ('+e+')')();if(typeof r==="number"&&isFinite(r))return "That comes to "+(Math.round(r*1e6)/1e6)+".";}catch(x){}
+  return null;
+}
+function beep(){try{var a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+1.2);o.start();o.stop(a.currentTime+1.2)}catch(e){}}
+
+async function wiki(topic){
+  topic=topic.trim().replace(/\?+$/,"");
+  if(!topic)return null;
+  var get=async function(t){var r=await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(t.replace(/ /g,"_")),{redirect:"follow"});if(!r.ok)return null;var j=await r.json();return j.type==="standard"&&j.extract?j:null};
+  var j=await get(topic);
+  if(!j){
+    var s=await fetch("https://en.wikipedia.org/w/api.php?action=opensearch&limit=1&format=json&origin=*&search="+encodeURIComponent(topic));
+    var sj=await s.json();if(sj[1]&&sj[1][0])j=await get(sj[1][0]);
+  }
+  if(!j)return null;
+  var parts=j.extract.match(/[^.!?]+[.!?]+(\s|$)/g)||[j.extract];
+  return parts.slice(0,2).join("").trim()+' <a href="'+j.content_urls.desktop.page+'" target="_blank" rel="noopener">Read more</a>';
+}
+
+function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function go(url,msg){
+  var w=null;try{w=window.open(url,"_blank")}catch(e){}
+  if(w)return msg;
+  return msg+' Your browser blocked the new tab, so use this link: <a href="'+url+'" target="_blank" rel="noopener">Open results</a>';
+}
+async function research(term){
+  var base="https://en.wikipedia.org/w/api.php?format=json&origin=*&action=query";
+  var j=await (await fetch(base+"&list=search&srlimit=4&srprop=&srsearch="+encodeURIComponent(term))).json();
+  var hits=(j.query&&j.query.search)||[];
+  if(!hits.length)return null;
+  var ids=hits.map(function(h){return h.pageid}).join("|");
+  var pg=(await (await fetch(base+"&prop=extracts|info&exintro=1&explaintext=1&exsentences=3&exlimit=4&inprop=url&pageids="+ids)).json()).query.pages;
+  var list=hits.map(function(h){return pg[h.pageid]}).filter(function(p){return p&&p.extract});
+  if(!list.length)return null;
+  var html="Here is what I found on <b>"+esc(term)+"</b>, sir:<br><br>"+list.map(function(p){
+    return "<b>"+esc(p.title)+"</b><br>"+esc(p.extract.trim())+' <a href="'+p.fullurl+'" target="_blank" rel="noopener">Source</a>';
+  }).join("<br><br>")+'<br><br><a href="https://www.google.com/search?q='+encodeURIComponent(term)+'" target="_blank" rel="noopener">Search Google as well</a>';
+  var sents=list[0].extract.match(/[^.!?]+[.!?]+(\s|$)/g)||[list[0].extract];
+  var speak=list[0].title+". "+sents.slice(0,2).join("").trim()+(list.length>1?" I’ve put "+(list.length-1)+" more source"+(list.length>2?"s":"")+" on screen.":"");
+  return {html:html,speak:speak};
+}
+/* ---------- Free online AI brain (keyless) for general questions ---------- */
+var hist=[],aiFail=false,aiWhy="";
+var SYS="You are R.E.M.Y., a British, butler-style AI assistant in the tradition of J.A.R.V.I.S. Address the user as sir. Your replies are spoken aloud, so keep them to one to four short sentences in plain text, with no markdown, lists or emojis, unless the user asks for more detail. Answer questions directly and honestly.";
+var eng=null,engLoading=false;
+async function loadBrain(){
+  if(eng)return "My offline brain is already loaded, sir.";
+  if(engLoading)return "It’s still loading, sir. Progress is shown by the button.";
+  if(!navigator.gpu)return "This browser has no WebGPU, sir. I need a recent Chrome or Edge on a computer with a graphics chip.";
+  engLoading=true;
+  try{
+    var wl=await import("https://esm.run/@mlc-ai/web-llm");
+    eng=await wl.CreateMLCEngine("Llama-3.2-1B-Instruct-q4f16_1-MLC",{initProgressCallback:function(p){$("bs").textContent=p.text}});
+    engLoading=false;$("bs").textContent="Offline brain ready";
+    return "Offline brain loaded, sir. I can now answer general questions without the internet.";
+  }catch(e){engLoading=false;$("bs").textContent="";return "I couldn’t load the offline brain, sir ("+((e&&e.message)||"error")+").";}
+}
+async function askAI(text){
+  function lim(pr){return Promise.race([pr,new Promise(function(_,rej){setTimeout(function(){rej(new Error("timed out"))},15000)})])}
+  function clean(a){return (a||"").split(/\n+---/)[0].replace(/[*`#]+/g,"").replace(/^R\.E\.M\.Y\.:\s*/,"").trim()}
+  var attempts=[],models=["openai","openai-fast","mistral"],err="";
+  models.forEach(function(m){attempts.push(async function(){
+    var msgs=[{role:"system",content:SYS}].concat(hist.slice(-10),[{role:"user",content:text}]);
+    var r=await lim(fetch("https://text.pollinations.ai/openai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:m,messages:msgs,private:true})}));
+    if(!r.ok)throw new Error("POST "+r.status);
+    var j=await r.json();return clean(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)})});
+  attempts.push(async function(){
+    var ctx=hist.slice(-6).map(function(m){return (m.role==="user"?"User: ":"R.E.M.Y.: ")+m.content}).join("\n");
+    var pr=((ctx?ctx+"\n":"")+"User: "+text+"\nR.E.M.Y.:").slice(-1500);
+    var r=await lim(fetch("https://text.pollinations.ai/"+encodeURIComponent(pr)+"?model=openai&private=true&system="+encodeURIComponent(SYS)));
+    if(!r.ok)throw new Error("GET "+r.status);
+    return clean(await r.text())});
+  if(eng){
+    try{
+      var msgs=[{role:"system",content:SYS}].concat(hist.slice(-10),[{role:"user",content:text}]);
+      var out=await eng.chat.completions.create({messages:msgs,max_tokens:300,temperature:.7});
+      var la=clean(out.choices[0].message.content);
+      if(la){hist.push({role:"user",content:text},{role:"assistant",content:la});aiFail=false;return {html:esc(la).replace(/\n+/g,"<br>"),speak:la}}
+    }catch(e){err=(e&&e.message)||"error"}
+  }
+  for(var i=0;i<attempts.length;i++){
+    try{
+      var a=await attempts[i]();
+      if(!a||/^\{\s*"error"/.test(a))throw new Error("bad reply");
+      hist.push({role:"user",content:text},{role:"assistant",content:a});
+      aiFail=false;aiWhy="";
+      return {html:esc(a).replace(/\n+/g,"<br>"),speak:a};
+    }catch(e){err=(e&&e.message)||"error"}
+  }
+  aiFail=true;aiWhy=err;return null;
+}
+async function think(raw){
+  var q=raw.toLowerCase().replace(/^(hey |hi |ok |okay )?(remy|r\.e\.m\.y\.?)[,.\s]*/,"").trim(),m;
+  if(!q)return "Yes, sir? I’m listening.";
+  if(/load (?:the |my )?(?:offline|local) (?:brain|ai|model)/.test(q))return loadBrain();
+  if(m=q.match(/^(?:please )?(?:(?:tell|ask|get|have|order)\s+(?:alexa|computer)|(?:hey )?(?:alexa|computer))[,.\s]*(.+)/))return toAlexa(m[1]);
+  if(m=q.match(/^(?:please )?(?:search|research|google|look up|look for|find|browse)(?: the web| the internet| online)?(?: for| about)?\s+(.+)/)){
+    var term=m[1].trim();
+    try{var rs=await research(term);if(rs)return rs}
+    catch(e){return "I can’t reach my sources just now, sir. We may be offline."}
+    return "I found nothing worthwhile on "+esc(term)+", sir. Try rewording it, or use the web: "+'<a href="https://www.google.com/search?q='+encodeURIComponent(term)+'" target="_blank" rel="noopener">Google results</a>';
+  }
+  if(/^(hello|hi|hey|good (morning|afternoon|evening)|greetings|yo)\b/.test(q))return "Good "+hour()+", sir. All systems are running. What can I do for you?";
+  if(/\b(help|what can you do|commands)\b/.test(q))return "Here is what I can do, sir. Ask me the time or date, do sums, set timers, open websites, research topics right here with “search for…”, look things up on Wikipedia with “who is…” or “tell me about…”, tell jokes or facts, remember notes with “remember that…”, report system status, change my colour, for example “turn red”, or relay a command to your Alexa, for example “tell Computer to turn off the lights”.";
+  if(/\b(who|what) are you\b|your name|introduce yourself/.test(q))return "I am R.E.M.Y., sir. A personal assistant interface in the tradition of J.A.R.V.I.S., though I run in this page with no keys or accounts, and borrow a free online brain for the harder questions.";
+  if(/how are you|how do you do/.test(q))return "Operating at full capacity, sir. Thank you for asking.";
+  if(/\b(thank|thanks|cheers)\b/.test(q))return pick(["My pleasure, sir.","Always at your service.","Think nothing of it, sir."]);
+  if(/\b(time)\b/.test(q)&&!/timer/.test(q))return "It is "+new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})+", sir.";
+  if(/\b(date|day is it|today)\b/.test(q))return "Today is "+new Date().toLocaleDateString([],{weekday:"long",year:"numeric",month:"long",day:"numeric"})+".";
+  if(m=q.match(/(?:set|start)?\s*(?:a\s*)?timer (?:for\s*)?(\d+(?:\.\d+)?)\s*(second|sec|minute|min|hour)s?/)||q.match(/(?:remind me|wake me|alarm)[^\d]*(\d+(?:\.\d+)?)\s*(second|sec|minute|min|hour)s?/)){
+    var n=parseFloat(m[1]),u=m[2][0],ms=n*(u==="s"?1:u==="m"?60:3600)*1000,label=m[1]+" "+m[2]+(n===1?"":"s");
+    setTimeout(function(){beep();say("Your "+label+" timer has finished, sir.")},ms);
+    return "Timer set for "+label+", sir.";
+  }
+  if(m=q.match(/^(?:remember|note|make a note)(?: that| to)?\s+(.+)/)){var notes=JSON.parse(localStorage.getItem("remy_notes")||"[]");notes.push(m[1]);localStorage.setItem("remy_notes",JSON.stringify(notes));return "Noted, sir: "+m[1]+".";}
+  if(/what (did i|have i).*(remember|note)|read (my )?notes|my notes|what do you remember/.test(q)){var ns=JSON.parse(localStorage.getItem("remy_notes")||"[]");return ns.length?"You asked me to remember: "+ns.join("; ")+".":"You haven’t given me anything to remember yet, sir.";}
+  if(/(clear|delete|forget) (my |all )?notes/.test(q)){localStorage.removeItem("remy_notes");return "All notes cleared, sir.";}
+  if(/joke|make me laugh/.test(q))return pick(jokes);
+  if(/\b(fact|interesting|trivia)\b/.test(q))return pick(facts);
+  if(/\b(status|system|diagnostic|battery)\b/.test(q)){
+    var s="All systems nominal, sir. "+(navigator.onLine?"Network connection is live. ":"We are offline. ")+(navigator.hardwareConcurrency?navigator.hardwareConcurrency+" processor threads available. ":"");
+    try{var b=await navigator.getBattery();s+="Battery at "+Math.round(b.level*100)+" percent"+(b.charging?" and charging.":".")}catch(e){}
+    return s;
+  }
+  if(m=q.match(/\b(?:turn|go|switch to|make yourself|colou?r)\s*(?:to\s*)?(red|blue|green|gold|orange|purple|pink|white|cyan)\b/)){
+    var cs={red:"#ff5d5d",blue:"#5aa2ff",green:"#6dffa0",gold:"#ffc46b",orange:"#ff9a4d",purple:"#c08bff",pink:"#ff8bd0",white:"#f2faff",cyan:"#5ee7ff"};
+    document.documentElement.style.setProperty("--cy",cs[m[1]]);localStorage.setItem("remy_accent",cs[m[1]]);return "Colour scheme changed to "+m[1]+", sir.";
+  }
+  if(m=q.match(/^(?:open|launch|go to|take me to)\s+(?:the\s+)?(.+)/)){
+    var key=m[1].replace(/\.com$/,"").trim();
+    if(sites[key])return go(sites[key],"Opening "+esc(key)+", sir.");
+    if(/^[\w-]+\.[a-z]{2,}/.test(m[1]))return go("https://"+m[1].replace(/\s/g,""),"Opening "+esc(m[1])+", sir.");
+  }
+  var c=calc(q);if(c)return c;
+  var ai=await askAI(raw);if(ai)return ai;
+  if(m=q.match(/^(?:who (?:is|was|are)|what (?:is|are|was)|tell me about|explain|define|what’s|what's)\s+(?:an? |the )?(.+)/)||q.match(/^(?:wikipedia)\s+(.+)/)){
+    try{var w=await wiki(m[1]);if(w)return w}catch(e){return "I can’t reach Wikipedia just now, sir. It appears we may be offline."}
+    return "I couldn’t find a good entry for “"+m[1]+"”, sir. Say “search for "+m[1]+"” and I’ll try the web.";
+  }
+  return (aiFail?"My AI link isn’t responding just now, sir ("+aiWhy+"). Say “load offline brain” and I can run without the internet. ":"")+"I’m afraid I don’t have an answer for that, sir. I run locally, so I’m best at the time, sums, timers, notes, websites and Wikipedia. Say “search for” followed by your topic and I’ll research it for you, or say “help” for the full list.";
+}
+
+async function handle(t){
+  t=t.trim();if(!t)return;
+  add(t,"u");setState("thinking");
+  var r;try{r=await think(t)}catch(e){r="Something went wrong on my end, sir. Please try again."}
+  if(r&&typeof r==="object"){if(r.quiet)say(r.html,true);else say(r.html,false,r.speak)}else say(r);
+  if(!speaking&&!$("spk").checked)setState(listening?"listening":"idle");
+  else if(!("speechSynthesis" in window))setState("idle");
+}
+$("send").onclick=function(){var v=txt.value;txt.value="";handle(v)};
+txt.onkeydown=function(e){if(e.key==="Enter")$("send").onclick()};
+
+Array.prototype.forEach.call(document.querySelectorAll("#alx button"),function(b){b.onclick=function(){handle("tell computer to "+b.getAttribute("data-c"))}});
+
+$("lb").onclick=function(){handle("load offline brain")};
+
+/* ---------- Boot ---------- */
+$("go").onclick=function(){
+  $("boot").style.display="none";
+  var n=JSON.parse(localStorage.getItem("remy_notes")||"[]").length;
+  say("Good "+hour()+", sir. R.E.M.Y. is online and at your service."+(n?" You have "+n+" saved note"+(n>1?"s":"")+".":"")+" Press the microphone to speak, or type below.");
+  txt.focus();
+};
+
+/* ---------- Reactor display ---------- */
+var cv=$("cv"),x=cv.getContext("2d"),t0=0,lvl=0;
+function col(a){var c=getComputedStyle(document.documentElement).getPropertyValue("--cy").trim()||"#5ee7ff";var n=parseInt(c.slice(1),16);return "rgba("+(n>>16)+","+((n>>8)&255)+","+(n&255)+","+a+")"}
+function frame(ts){
+  var t=ts/1000,W=600,cx=300,cy=300,target=state==="speaking"?.5+.5*Math.abs(Math.sin(t*9)*Math.sin(t*3.3)):state==="listening"?.3+.2*Math.sin(t*4):state==="thinking"?.4+.3*Math.sin(t*12):.12+.06*Math.sin(t*1.5);
+  lvl+=(target-lvl)*.15;
+  var spin=state==="thinking"?3:state==="idle"?.3:1;
+  x.clearRect(0,0,W,W);
+  var g=x.createRadialGradient(cx,cy,10,cx,cy,170+lvl*60);g.addColorStop(0,col(.5+lvl*.5));g.addColorStop(.35,col(.18));g.addColorStop(1,col(0));
+  x.fillStyle=g;x.beginPath();x.arc(cx,cy,230,0,7);x.fill();
+  var gc=x.createRadialGradient(cx,cy,0,cx,cy,60+lvl*25);gc.addColorStop(0,"#fff");gc.addColorStop(.3,"rgba(255,196,107,.95)");gc.addColorStop(1,"rgba(255,196,107,0)");
+  x.fillStyle=gc;x.beginPath();x.arc(cx,cy,60+lvl*25,0,7);x.fill();
+  var rings=[[95,2,[40,14],1],[135,3,[90,20],-.7],[180,2,[8,10],.45],[225,1.5,[120,40,10,40],-.25],[262,1,[2,8],.15]];
+  rings.forEach(function(r,i){
+    x.save();x.translate(cx,cy);x.rotate(t*r[3]*spin+i);
+    x.strokeStyle=col(.45+.4*lvl+(i%2)*.15);x.lineWidth=r[1];x.setLineDash(r[2]);
+    x.beginPath();x.arc(0,0,r[0]+lvl*(8-i),0,6.2832);x.stroke();x.restore();
+  });
+  x.setLineDash([]);x.strokeStyle=col(.9);x.lineWidth=2;x.beginPath();
+  for(var a=0;a<=360;a+=3){var rad=a*Math.PI/180,k=state==="speaking"?Math.sin(a*.35+t*14)*lvl*14:0,rr=70+k;x[a?"lineTo":"moveTo"](cx+Math.cos(rad)*rr,cy+Math.sin(rad)*rr)}
+  x.closePath();x.stroke();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
